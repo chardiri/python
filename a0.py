@@ -401,7 +401,7 @@ class Line:
         this column.
 
         Dropping refers to inserting the <item> into this column so that the
-        Square with the smallest row-coordinate that previously had a value of
+        Square with the largest row-coordinate that previously had a value of
         None now has <item> as its symbol.
 
         See the assignment materials for a diagram.
@@ -412,20 +412,24 @@ class Line:
         - item in ('X', 'O')
 
         >>> l = Line([Square((0, 0)), Square((1, 0)),
-        ...           Square((2, 0)), Square((3, 0))])  # an empty column
+        ...           Square((2, 0)), Square((3, 0), 'O')])  # an empty column
         >>> row_coord = l.drop('X')
         >>> row_coord
-        3
+        2
         >>> print(l[row_coord])
         X
         """
-        end = len(self) - 1
-        for i in range(len(self)-1):
-            if self[end].symbol is None:
-                self[end].symbol = item
-                return self[end].coord[0]
-            else:
-                end -= 1
+        for i in range(len(self)-1, -1, -1):
+            if self[i].symbol is None:
+                self[i].symbol = item
+                return self[i].coord[0]
+        # end = len(self.cells) - 1
+        # for i in range(len(self)):
+        #     if self.cells[end].symbol is None:
+        #         self.cells[end].symbol = item
+        #         return self.cells[end].coord[0]
+        #     else:
+        #         end -= 1
 
     def __str__(self) -> str:
         """
@@ -460,10 +464,17 @@ class Line:
         >>> full_line.is_full()
         True
         """
-        for sq in self:
-            if sq.symbol is None:
+        lst = []
+        item = ('X', 'O')
+        for sq in self.cells:
+            if sq.symbol in item:
+                lst.append(sq.symbol)
+            else:
                 return False
-        return True
+        return len(lst) == len(self.cells)
+        #     if sq.symbol is None:
+        #         return False
+        # return True
 
     def has_fiar(self, coord: tuple[int, int]) -> bool:
         """
@@ -542,6 +553,11 @@ def create_rows_and_columns(squares: list[list[Square]]) -> \
     True
     >>> rows[0][0] is squares[0][0]  # check that the proper aliasing exists
     True
+    >>> is_column(columns[1].cells)
+    True
+
+    [(0, 0), (1, 0), (2, 0), (3, 0)]
+
     """
     rows = []
     col = []
@@ -550,9 +566,8 @@ def create_rows_and_columns(squares: list[list[Square]]) -> \
     for r in squares:
         rows.append(Line(r))
 
-    for count in range(len(squares)):
-        for r in squares:
-            col.append(r[count])
+    for row in rows:
+        col.append(row[0])
         cols.append(Line(col))
 
     my_tuple = (rows, cols)
@@ -595,7 +610,24 @@ def create_mapping(squares: list[list[Square]]) -> \
     >>> is_diagonal(lines[2].cells)
     True
     """
-    # TODO: Implement this function
+    mapping = {}
+    rows_cols = create_rows_and_columns(squares)
+    diagonals = all_diagonals(squares)
+    for lst in squares:
+        row = 0
+        col = 0
+        for co in lst:
+            if co.coord in diagonals[0]:
+                mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col], diagonals[0]]
+                if co.coord in diagonals[1]:
+                    mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col], diagonals[1]]
+            elif co.coord in diagonals[1]:
+                mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col], diagonals[1]]
+            else:
+                mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col]]
+            row += 1
+            col += 1
+    return mapping
 
 
 @check_contracts
@@ -647,14 +679,15 @@ def get_down_diagonal(start: tuple[int, int], n: int) -> list[tuple[int, int]]:
 
     >>> get_down_diagonal((0, 0), 4)
     [(0, 0), (1, 1), (2, 2), (3, 3)]
+    >>> get_down_diagonal((2, 0), 6)
+    [(2, 0), (3, 1), (4, 2), (5, 3)]
     """
+
     lst = [start]
     new = ((start[0] + 1), (start[1] + 1))
-
-    while new[0] and new[1] < n:
+    while new[0] and new[1] in range(n) and within_grid(new, n):
         lst.append(new)
         new = ((new[0] + 1), (new[1] + 1))
-
     return lst
 
 
@@ -738,15 +771,16 @@ def all_diagonals(squares: list[list[Square]]) -> list[Line]:
     Line([Square((3, 0)), Square((2, 1)), Square((1, 2)), Square((0, 3))]
 
     """
-    # TODO: Implement this function
+
     lst = []
-    sqs = []
     diagonal = get_coords_of_diagonals(len(squares))
     for line in diagonal:
+        sqs = []
         for coord in line:
             sqs.append(Square(coord))
         lst.append(Line(sqs))
     return lst
+
 
 @check_contracts
 class Grid:
@@ -794,12 +828,10 @@ class Grid:
         self.n = n
 
         # TODO Task 3.1: Implement the create_rows_and_columns helper
-    def create_rows_and_columns_helper(self):
         squares = create_squares(self.n)
         self._rows, self._columns = create_rows_and_columns(squares)
 
         # TODO Task 3.2: Implement the create_mapping helper
-    def create_mapping_helper(self):
         squares = create_squares(self.n)
         self._mapping = create_mapping(squares)
 
@@ -837,7 +869,10 @@ class Grid:
         >>> g.drop(1, 'X')  # will land in on top of the previously dropped 'X'
         2
         """
-        # TODO: Implement this method
+
+        column_line = self._columns[col]
+
+        return column_line.drop(item)
 
     def has_fiar(self, coord: tuple[int, int]) -> bool:
         """
@@ -852,11 +887,14 @@ class Grid:
         >>> g.has_fiar((0, 0))
         False
         >>> for _ in range(4):  # make a four-in-a-row
-        ...     _ = g.drop(0, 'X')
+        ...     _ = g.drop(2, 'X')
         >>> g.has_fiar((0, 0))
         True
         """
         # TODO: Implement this method
+        for line in self._mapping[coord]:
+            return line.has_fiar(coord)
+
 
     def is_full(self) -> bool:
         """
@@ -872,7 +910,11 @@ class Grid:
         True
         """
         # TODO: Implement this method
+        for col in self._columns:
+            if col.is_full() is False:
+                return False
 
+        return True
 
 if __name__ == '__main__':
     CHECK_PYTA = True
