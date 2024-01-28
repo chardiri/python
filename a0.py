@@ -596,7 +596,22 @@ def create_mapping(squares: list[list[Square]]) -> \
     True
     """
     # TODO: Implement this function
-
+    mapping = {}
+    rows_cols = create_rows_and_columns(squares)
+    diagonals = all_diagonals(squares)
+    for lst in squares:
+        row = 0
+        col = 0
+        for co in lst:
+            if co.coord in diagonals[0]:
+                mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col], diagonals[0]]
+            elif co.coord in diagonals[1]:
+                mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col], diagonals[1]]
+            else:
+                mapping[co.coord] = [rows_cols[0][row], rows_cols[1][col]]
+            row += 1
+            col += 1
+    return mapping
 
 @check_contracts
 def get_down_diagonal_starts(n: int) -> list[tuple[int, int]]:
